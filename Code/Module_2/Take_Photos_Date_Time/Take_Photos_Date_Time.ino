@@ -86,7 +86,7 @@ void setup() {
 void loop() {  
   // Get date and time
   struct tm timeinfo;
-  char now[20]; //testar
+  char now[20];
   getLocalTime(&timeinfo);
   strftime(now,20,"%Y%m%d_%H%M%S",&timeinfo);
   
