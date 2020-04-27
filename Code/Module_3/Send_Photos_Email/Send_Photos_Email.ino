@@ -179,7 +179,7 @@ void capturePhotoSaveSpiffs( void ) {
   } while ( !ok );
 }
 
-boolean sendPhoto( void ) {
+void sendPhoto( void ) {
   // Preparing email
   Serial.println("Sending email...");
   // Set the SMTP Server Email host, port, account and password
