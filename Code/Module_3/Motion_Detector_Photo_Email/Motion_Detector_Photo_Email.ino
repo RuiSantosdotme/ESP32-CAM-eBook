@@ -129,6 +129,7 @@ void setup() {
 
   esp_sleep_enable_ext0_wakeup(GPIO_NUM_13, 1);
   Serial.println("Going to sleep now");
+  WiFi.disconnect();
   delay(1000);
   esp_deep_sleep_start();
 }
