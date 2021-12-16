@@ -266,7 +266,8 @@ void smtpCallback(SMTP_Status status){
     {
       /* Get the result item */
       SMTP_Result result = smtp.sendingResult.getItem(i);
-      localtime_r(&result.timesstamp, &dt);
+      time_t ts = (time_t)result.timestamp;
+      localtime_r(&ts, &dt);
 
       Serial.printf("Message No: %d\n", i + 1);
       Serial.printf("Status: %s\n", result.completed ? "success" : "failed");
