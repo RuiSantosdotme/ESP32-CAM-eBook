@@ -11,12 +11,13 @@
 #include "driver/rtc_io.h"
 #include <ESP_Mail_Client.h>
 #include <FS.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <WiFi.h>
 
 // REPLACE WITH YOUR NETWORK CREDENTIALS
 const char* ssid = "REPLACE_WITH_YOUR_SSID";
 const char* password = "REPLACE_WITH_YOUR_PASSWORD";
+
 
 // To send Emails using Gmail on port 465 (SSL), you need to create an app password: https://support.google.com/accounts/answer/185833
 #define emailSenderAccount    "EXAMPLE_EMAIL@gmail.com"
@@ -56,7 +57,7 @@ SMTPSession smtp;
 /* Callback function to get the Email sending status */
 void smtpCallback(SMTP_Status status);
 
-// Photo File Name to save in SPIFFS
+// Photo File Name to save in LittleFS
 #define FILE_PHOTO "photo.jpg"
 #define FILE_PHOTO_PATH "/photo.jpg"
 
@@ -75,13 +76,13 @@ void setup() {
   }
   Serial.println();
   
-  if (!SPIFFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting SPIFFS");
+  if (!LittleFS.begin(true)) {
+    Serial.println("An Error has occurred while mounting LittleFS");
     ESP.restart();
   }
   else {
     delay(500);
-    Serial.println("SPIFFS mounted successfully");
+    Serial.println("LittleFS mounted successfully");
   }
   
   // Print ESP32 Local IP Address
@@ -109,11 +110,12 @@ void setup() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode = CAMERA_GRAB_LATEST;
   
   if(psramFound()){
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;
-    config.fb_count = 2;
+    config.fb_count = 1;
   } else {
     config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 12;
@@ -127,7 +129,7 @@ void setup() {
     return;
   }
   
-  capturePhotoSaveSpiffs();
+  capturePhotoSaveLittleFS();
   sendPhoto();
 
   esp_sleep_enable_ext0_wakeup(GPIO_NUM_13, 1);
@@ -148,24 +150,32 @@ bool checkPhoto( fs::FS &fs ) {
   return ( pic_sz > 100 );
 }
 
-// Capture Photo and Save it to SPIFFS
-void capturePhotoSaveSpiffs( void ) {
+// Capture Photo and Save it to LittleFS
+void capturePhotoSaveLittleFS( void ) {
   camera_fb_t * fb = NULL; // pointer
   bool ok = 0; // Boolean indicating if the picture has been taken correctly
 
   do {
     // Take a photo with the camera
     Serial.println("Taking a photo...");
-
-    fb = esp_camera_fb_get();
-    if (!fb) {
-      Serial.println("Camera capture failed");
-      return;
+    //The first three pictures after restart have a green tint, discard those images
+    for (int i = 0; i <=3; i++){
+      camera_fb_t * fb = NULL;
+      fb = esp_camera_fb_get();
+      esp_camera_fb_return(fb); // dispose the buffered image
     }
-
+    fb = NULL; // reset to capture errors
+    // Get fresh image
+    fb = esp_camera_fb_get();
+    if(!fb) {
+      Serial.println("Camera capture failed");
+      delay(1000);
+      ESP.restart();
+   }
+   
     // Photo file name
     Serial.printf("Picture file name: %s\n", FILE_PHOTO_PATH);
-    File file = SPIFFS.open(FILE_PHOTO_PATH, FILE_WRITE);
+    File file = LittleFS.open(FILE_PHOTO_PATH, FILE_WRITE);
 
     // Insert the data in the photo file
     if (!file) {
@@ -176,15 +186,15 @@ void capturePhotoSaveSpiffs( void ) {
       Serial.print("The picture has been saved in ");
       Serial.print(FILE_PHOTO_PATH);
       Serial.print(" - Size: ");
-      Serial.print(file.size());
+      Serial.print(fb->len);
       Serial.println(" bytes");
     }
     // Close the file
     file.close();
     esp_camera_fb_return(fb);
 
-    // check if file has been correctly saved in SPIFFS
-    ok = checkPhoto(SPIFFS);
+    // check if file has been correctly saved in LittleFS
+    ok = checkPhoto(LittleFS);
   } while ( !ok );
 }
 
@@ -272,7 +282,7 @@ void smtpCallback(SMTP_Status status){
     {
       /* Get the result item */
       SMTP_Result result = smtp.sendingResult.getItem(i);
-      localtime_r(&result.timesstamp, &dt);
+      time_t ts = (time_t)result.timestamp;
 
       Serial.printf("Message No: %d\n", i + 1);
       Serial.printf("Status: %s\n", result.completed ? "success" : "failed");
@@ -281,5 +291,8 @@ void smtpCallback(SMTP_Status status){
       Serial.printf("Subject: %s\n", result.subject);
     }
     Serial.println("----------------\n");
+    
+    // You need to clear sending result as the memory usage will grow up.
+    smtp.sendingResult.clear();
   }
 }
