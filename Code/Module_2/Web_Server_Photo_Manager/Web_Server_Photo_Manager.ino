@@ -23,12 +23,12 @@
 
 // Replace with your network credentials
 const char* ssid = "REPLACE_WITH_YOUR_SSID";
-const char* password = "REPLACE_WITH_PASSWORD";
+const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
 // NTP Server
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
-const int   daylightOffset_sec = 3600;
+const int   daylightOffset_sec = 0;
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
@@ -88,7 +88,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       <button onclick="window.open('/list','_blank')">VIEW AND DELETE PHOTOS</button>
     </p>
   </div>
-  <img src="saved-photo" id="photo" alt="Image not found: failed to open image, image deleted or no microSD card inserted. Try refresh the page or restart your board.">
+  <img src="/saved-photo" id="photo" alt="Image not found: failed to open image, image deleted or no microSD card inserted. Try refresh the page or restart your board.">
 </body>
 <script>
   var deg = 0;
@@ -144,7 +144,7 @@ void setup() {
   });
 
   server.on("/saved-photo", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SD_MMC, lastPhoto, "image/jpg", false);
+    request->send(SD_MMC, "/" + lastPhoto, "image/jpg", false);
   });
   
   server.on("/list", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -164,7 +164,7 @@ void setup() {
       inputParam = "none";
     }
     Serial.println(inputMessage);
-    request->send(SD_MMC, inputMessage, "image/jpg", false);
+    request->send(SD_MMC, "/" + inputMessage, "image/jpg", false);
   });
   
   // Send a GET request to <ESP_IP>/delete?photo=<inputMessage>
@@ -180,9 +180,10 @@ void setup() {
       inputMessage = "No message sent";
       inputParam = "none";
     }
-    Serial.println(inputMessage);
-    deleteFile(SD_MMC, inputMessage.c_str());
-    request->send(200, "text/html", "Done. Your photo named " + inputMessage + " was removed." +
+    String deleteFilePath = "/" + inputMessage;
+    Serial.println(deleteFilePath);
+    deleteFile(SD_MMC, deleteFilePath.c_str());
+    request->send(200, "text/html", "Done. Your photo named " + deleteFilePath + " was removed." +
                                      "<br><a href=\"/\">Return to Home Page</a> or <a href=\"/list\">view/delete other photos</a>.");
   });
   // Start server
@@ -221,12 +222,13 @@ void configInitCamera(){
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG; //YUV422,GRAYSCALE,RGB565,JPEG
+  config.grab_mode = CAMERA_GRAB_LATEST;
 
   // Select lower framesize if the camera doesn't support PSRAM
   if(psramFound()){
     config.frame_size = FRAMESIZE_UXGA; // FRAMESIZE_ + QVGA|CIF|VGA|SVGA|XGA|SXGA|UXGA
     config.jpeg_quality = 10; //0-63 lower number means higher quality
-    config.fb_count = 2;
+    config.fb_count = 1;
   } 
   else {
     config.frame_size = FRAMESIZE_SVGA;
@@ -259,12 +261,20 @@ void initMicroSDCard(){
 void takeSavePhoto(){
   struct tm timeinfo;
   char now[20];
-  // Take Picture with Camera
-  camera_fb_t  * fb = esp_camera_fb_get();  
+  
+  // Clean previous buffer
+  camera_fb_t * fb = NULL;
+  fb = esp_camera_fb_get();
+  esp_camera_fb_return(fb); // dispose the buffered image
+  fb = NULL; // reset to capture errors
+  // Get fresh image
+  fb = esp_camera_fb_get(); 
   if(!fb) {
     Serial.println("Camera capture failed");
-    return;
-  } 
+    delay(1000);
+    ESP.restart();
+  }
+    
   // Path where new picture will be saved in SD Card
   getLocalTime(&timeinfo);
   strftime(now, 20, "%Y%m%d_%H%M%S", &timeinfo); // Format Date & Time
