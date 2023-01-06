@@ -16,7 +16,7 @@
 #include "driver/rtc_io.h"
 #include <ESPAsyncWebServer.h>
 #include <StringArray.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <FS.h>
 
 // Replace with your network credentials
@@ -28,7 +28,7 @@ AsyncWebServer server(80);
 
 boolean takeNewPhoto = false;
 
-// Photo File Name to save in SPIFFS
+// Photo File Name to save in LittleFS
 #define FILE_PHOTO "/photo.jpg"
 
 // OV2640 camera module pins (CAMERA_MODEL_AI_THINKER)
@@ -99,13 +99,13 @@ void setup() {
     delay(1000);
     Serial.println("Connecting to WiFi...");
   }
-  if (!SPIFFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting SPIFFS");
+  if (!LittleFS.begin(true)) {
+    Serial.println("An Error has occurred while mounting LittleFS");
     ESP.restart();
   }
   else {
     delay(500);
-    Serial.println("SPIFFS mounted successfully");
+    Serial.println("LittleFS mounted successfully");
   }
 
   // Print ESP32 Local IP Address
@@ -137,11 +137,12 @@ void setup() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode = CAMERA_GRAB_LATEST;
 
   if (psramFound()) {
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;
-    config.fb_count = 2;
+    config.fb_count = 1;
   } else {
     config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 12;
@@ -165,7 +166,7 @@ void setup() {
   });
 
   server.on("/saved-photo", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(SPIFFS, FILE_PHOTO, "image/jpg", false);
+    request->send(LittleFS, FILE_PHOTO, "image/jpg", false);
   });
 
   // Start server
@@ -175,7 +176,7 @@ void setup() {
 
 void loop() {
   if (takeNewPhoto) {
-    capturePhotoSaveSpiffs();
+    capturePhotoSaveLittleFS();
     takeNewPhoto = false;
   }
   delay(1);
@@ -185,19 +186,24 @@ void loop() {
 bool checkPhoto( fs::FS &fs ) {
   File f_pic = fs.open( FILE_PHOTO );
   unsigned int pic_sz = f_pic.size();
+  Serial.print(pic_sz);
+  f_pic.close();
   return ( pic_sz > 100 );
 }
 
-// Capture Photo and Save it to SPIFFS
-void capturePhotoSaveSpiffs( void ) {
+// Capture Photo and Save it to LittleFS
+void capturePhotoSaveLittleFS( void ) {
   camera_fb_t * fb = NULL; // pointer
   bool ok = 0; // Boolean indicating if the picture has been taken correctly
 
   do {
     // Take a photo with the camera
-    Serial.println("Taking a photo...");
-
     fb = esp_camera_fb_get();
+    esp_camera_fb_return(fb); // dispose the buffered image
+    fb = NULL; // reset to capture errors
+    // Get fresh image
+    Serial.println("Taking a photo...");
+    fb = esp_camera_fb_get();     
     if (!fb) {
       Serial.println("Camera capture failed");
       return;
@@ -205,7 +211,7 @@ void capturePhotoSaveSpiffs( void ) {
 
     // Photo file name
     Serial.printf("Picture file name: %s\n", FILE_PHOTO);
-    File file = SPIFFS.open(FILE_PHOTO, FILE_WRITE);
+    File file = LittleFS.open(FILE_PHOTO, FILE_WRITE);
 
     // Insert the data in the photo file
     if (!file) {
@@ -216,14 +222,14 @@ void capturePhotoSaveSpiffs( void ) {
       Serial.print("The picture has been saved in ");
       Serial.print(FILE_PHOTO);
       Serial.print(" - Size: ");
-      Serial.print(file.size());
+      Serial.print(fb->len);
       Serial.println(" bytes");
     }
     // Close the file
     file.close();
     esp_camera_fb_return(fb);
 
-    // check if file has been correctly saved in SPIFFS
-    ok = checkPhoto(SPIFFS);
+    // check if file has been correctly saved in LittleFS
+    ok = checkPhoto(LittleFS);
   } while ( !ok );
 }
