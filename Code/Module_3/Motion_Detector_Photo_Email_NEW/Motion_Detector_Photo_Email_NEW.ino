@@ -21,7 +21,7 @@ const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
 // To send Emails using Gmail on port 465 (SSL), you need to create an app password: https://support.google.com/accounts/answer/185833
 #define emailSenderAccount    "EXAMPLE_EMAIL@gmail.com"
-#define emailSenderPassword   "YOUR_EXAMPLE_EMAIL_PASSWORD"
+#define emailSenderPassword   "YOUR_EMAIL_APP_PASSWORD"
 #define smtpServer            "smtp.gmail.com"
 #define smtpServerPort        465
 #define emailSubject          "[WARNING] ESP32-CAM Motion Detected"
