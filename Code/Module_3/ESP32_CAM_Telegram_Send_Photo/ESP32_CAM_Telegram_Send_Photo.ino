@@ -19,7 +19,7 @@ const char* ssid = "REPLACE_WITH_YOUR_SSID";
 const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
 // Initialize Telegram BOT
-String BOTtoken = "XXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";  // your Bot Token (Get from Botfather)
+String BOTtoken = "XXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";// your Bot Token (Get from Botfather)
 
 // Use @myidbot to find out the chat ID of an individual or a group
 // Also note that you need to click "start" on a bot before it can
@@ -57,7 +57,6 @@ unsigned long lastTimeBotRan;
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-
 void configInitCamera(){
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -80,12 +79,13 @@ void configInitCamera(){
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode = CAMERA_GRAB_LATEST;
 
   //init with high specs to pre-allocate larger buffers
   if(psramFound()){
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;  //0-63 lower number means higher quality
-    config.fb_count = 2;
+    config.fb_count = 1;
   } else {
     config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 12;  //0-63 lower number means higher quality
@@ -102,7 +102,8 @@ void configInitCamera(){
 
   // Drop down frame size for higher initial frame rate
   sensor_t * s = esp_camera_sensor_get();
-  s->set_framesize(s, FRAMESIZE_CIF);  // UXGA|SXGA|XGA|SVGA|VGA|CIF|QVGA|HQVGA|QQVGA
+  s->set_framesize(s, FRAMESIZE_CIF);
+  // UXGA|SXGA|XGA|SVGA|VGA|CIF|QVGA|HQVGA|QQVGA
 }
 
 void handleNewMessages(int numNewMessages) {
@@ -145,17 +146,20 @@ String sendPhotoTelegram() {
   String getAll = "";
   String getBody = "";
 
+  // Clean previous buffer
   camera_fb_t * fb = NULL;
-  fb = esp_camera_fb_get();  
+  fb = esp_camera_fb_get();
+  esp_camera_fb_return(fb); // dispose the buffered image
+  fb = NULL; // reset to capture errors
+  // Get fresh image
+  fb = esp_camera_fb_get();
   if(!fb) {
     Serial.println("Camera capture failed");
     delay(1000);
     ESP.restart();
-    return "Camera capture failed";
-  }  
+  } 
   
   Serial.println("Connect to " + String(myDomain));
-
 
   if (clientTCP.connect(myDomain, 443)) {
     Serial.println("Connection successful");
@@ -187,26 +191,22 @@ String sendPhotoTelegram() {
       }
     }  
     
-    clientTCP.print(tail);
-    
+    clientTCP.print(tail);   
     esp_camera_fb_return(fb);
     
     int waitTime = 10000;   // timeout 10 seconds
     long startTimer = millis();
     boolean state = false;
-    
-    while ((startTimer + waitTime) > millis())
-    {
+    while ((startTimer + waitTime) > millis()){
       Serial.print(".");
       delay(100);      
-      while (clientTCP.available()) 
-      {
+      while (clientTCP.available()){
           char c = clientTCP.read();
-          if (c == '\n') 
+          if (c == '\n')
           {
-            if (getAll.length()==0) state=true; 
+            if (getAll.length()==0) state=true;
             getAll = "";
-          } 
+          }
           else if (c != '\r')
             getAll += String(c);
           if (state==true) getBody += String(c);
@@ -225,7 +225,7 @@ String sendPhotoTelegram() {
 }
 
 void setup(){
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   // Init Serial Monitor
   Serial.begin(115200);
 
@@ -241,22 +241,21 @@ void setup(){
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  clientTCP.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
+  WiFi.begin(ssid, password);  
+  clientTCP.setCACert(TELEGRAM_CERTIFICATE_ROOT);  
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(500);
   }
   Serial.println();
   Serial.print("ESP32-CAM IP Address: ");
-  Serial.println(WiFi.localIP()); 
+  Serial.println(WiFi.localIP());
 }
-
 void loop() {
   if (sendPhoto) {
     Serial.println("Preparing photo");
-    sendPhotoTelegram(); 
-    sendPhoto = false; 
+    sendPhotoTelegram();
+    sendPhoto = false;
   }
   if (millis() > lastTimeBotRan + botRequestDelay)  {
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
