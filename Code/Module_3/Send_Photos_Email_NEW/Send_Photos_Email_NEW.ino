@@ -11,7 +11,6 @@
 #include "driver/rtc_io.h"
 #include <ESP_Mail_Client.h>
 #include <FS.h>
-#include <LittleFS.h>
 #include <WiFi.h>
 
 // REPLACE WITH YOUR NETWORK CREDENTIALS
@@ -20,7 +19,7 @@ const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
 // To send Email using Gmail use port 465 (SSL) and SMTP Server smtp.gmail.com
 // You need to create an email app password
-#define emailSenderAccount    "EXAMPLE_EMAIL@gmail.com"
+#define emailSenderAccount    "SENDER_EMAIL@gmail.com"
 #define emailSenderPassword   "YOUR_EMAIL_APP_PASSWORD"
 #define smtpServer            "smtp.gmail.com"
 #define smtpServerPort        465
@@ -75,18 +74,12 @@ void setup() {
   }
   Serial.println();
   
-  if (!LittleFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting LittleFS");
-    ESP.restart();
-  }
-  else {
-    delay(500);
-    Serial.println("LittleFS mounted successfully");
-  }
-  
   // Print ESP32 Local IP Address
   Serial.print("IP Address: http://");
   Serial.println(WiFi.localIP());
+
+  // Init filesystem
+  ESP_MAIL_DEFAULT_FLASH_FS.begin();
    
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -103,8 +96,8 @@ void setup() {
   config.pin_pclk = PCLK_GPIO_NUM;
   config.pin_vsync = VSYNC_GPIO_NUM;
   config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
@@ -191,6 +184,7 @@ void capturePhotoSaveLittleFS( void ) {
 }
 
 void sendPhoto( void ) {
+  
   /** Enable the debug via Serial port
    * none debug or 0
    * basic debug or 1
@@ -201,14 +195,24 @@ void sendPhoto( void ) {
   smtp.callback(smtpCallback);
 
   /* Declare the session config data */
-  ESP_Mail_Session session;
+  Session_Config config;
+  
+  /*Set the NTP config time
+  For times east of the Prime Meridian use 0-12
+  For times west of the Prime Meridian add 12 to the offset.
+  Ex. American/Denver GMT would be -6. 6 + 12 = 18
+  See https://en.wikipedia.org/wiki/Time_zone for a list of the GMT/UTC timezone offsets
+  */
+  config.time.ntp_server = F("pool.ntp.org,time.nist.gov");
+  config.time.gmt_offset = 0;
+  config.time.day_light_offset = 1;
 
   /* Set the session config */
-  session.server.host_name = smtpServer;
-  session.server.port = smtpServerPort;
-  session.login.email = emailSenderAccount;
-  session.login.password = emailSenderPassword;
-  session.login.user_domain = "";
+  config.server.host_name = smtpServer;
+  config.server.port = smtpServerPort;
+  config.login.email = emailSenderAccount;
+  config.login.password = emailSenderPassword;
+  config.login.user_domain = "";
 
   /* Declare the message class */
   SMTP_Message message;
@@ -248,7 +252,7 @@ void sendPhoto( void ) {
   message.addAttachment(att);
 
   /* Connect to server with the session config */
-  if (!smtp.connect(&session))
+  if (!smtp.connect(&config))
     return;
 
   /* Start sending the Email and close the session */
@@ -270,17 +274,17 @@ void smtpCallback(SMTP_Status status){
     Serial.println("----------------\n");
     struct tm dt;
 
-    for (size_t i = 0; i < smtp.sendingResult.size(); i++)
-    {
+    for (size_t i = 0; i < smtp.sendingResult.size(); i++){
       /* Get the result item */
       SMTP_Result result = smtp.sendingResult.getItem(i);
       time_t ts = (time_t)result.timestamp;
+      localtime_r(&ts, &dt);
 
-      Serial.printf("Message No: %d\n", i + 1);
-      Serial.printf("Status: %s\n", result.completed ? "success" : "failed");
-      Serial.printf("Date/Time: %d/%d/%d %d:%d:%d\n", dt.tm_year + 1900, dt.tm_mon + 1, dt.tm_mday, dt.tm_hour, dt.tm_min, dt.tm_sec);
-      Serial.printf("Recipient: %s\n", result.recipients);
-      Serial.printf("Subject: %s\n", result.subject);
+      ESP_MAIL_PRINTF("Message No: %d\n", i + 1);
+      ESP_MAIL_PRINTF("Status: %s\n", result.completed ? "success" : "failed");
+      ESP_MAIL_PRINTF("Date/Time: %d/%d/%d %d:%d:%d\n", dt.tm_year + 1900, dt.tm_mon + 1, dt.tm_mday, dt.tm_hour, dt.tm_min, dt.tm_sec);
+      ESP_MAIL_PRINTF("Recipient: %s\n", result.recipients.c_str());
+      ESP_MAIL_PRINTF("Subject: %s\n", result.subject.c_str());
     }
     Serial.println("----------------\n");
 
