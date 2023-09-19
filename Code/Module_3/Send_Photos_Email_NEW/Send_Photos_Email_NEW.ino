@@ -129,18 +129,9 @@ void loop() {
 
 }
 
-// Check if photo capture was successful
-bool checkPhoto( fs::FS &fs ) {
-  File f_pic = fs.open( FILE_PHOTO_PATH );
-  unsigned int pic_sz = f_pic.size();
-  return ( pic_sz > 100 );
-}
-
 // Capture Photo and Save it to LittleFS
 void capturePhotoSaveLittleFS( void ) {
-   bool ok = 0; // Boolean indicating if the picture has been taken correctly
-
-  //Dispose first pictures because of bad quality
+  // Dispose first pictures because of bad quality
   camera_fb_t* fb = NULL;
   // Skip first 3 frames (increase/decrease number as needed).
   for (int i = 0; i < 3; i++) {
