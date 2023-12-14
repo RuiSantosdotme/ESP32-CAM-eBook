@@ -358,8 +358,11 @@ bool sendEmailNotification(String emailMessage){
   smtp.connect(&session);
 
   /* Start sending the Email and close the session */
-  if (!MailClient.sendMail(&smtp, &message, true))
+  if (!MailClient.sendMail(&smtp, &message, true)) {
     Serial.println("Error sending Email, " + smtp.errorReason());
+    return false;
+  }
+  return true;
 }
 
 // Callback function to get the Email sending status
