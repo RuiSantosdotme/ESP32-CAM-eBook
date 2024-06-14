@@ -133,8 +133,6 @@ const char* password = "REPLACE_WITH_YOUR_PASSWORD";
 
 #define SERVO_STEP   5
 
-Servo servoN1;
-Servo servoN2;
 Servo servo1;
 Servo servo2;
 
@@ -385,8 +383,6 @@ void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
   servo1.setPeriodHertz(50);    // standard 50 hz servo
   servo2.setPeriodHertz(50);    // standard 50 hz servo
-  servoN1.attach(2, 1000, 2000);
-  servoN2.attach(13, 1000, 2000);
   
   servo1.attach(SERVO_1, 1000, 2000);
   servo2.attach(SERVO_2, 1000, 2000);
