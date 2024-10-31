@@ -292,6 +292,7 @@ String processor(const String& var){
   else if(var == "PRESSURE"){
     return String(pressure);
   }
+  return String();
 }
 
 unsigned long lastTime = 0;  
