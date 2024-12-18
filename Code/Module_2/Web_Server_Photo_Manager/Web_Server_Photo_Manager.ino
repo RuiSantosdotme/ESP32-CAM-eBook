@@ -15,7 +15,6 @@
 #include "soc/rtc_cntl_reg.h"  // Disable brownout problems
 #include "driver/rtc_io.h"
 #include <ESPAsyncWebServer.h>
-#include <StringArray.h>
 #include "FS.h"                // SD Card ESP32
 #include "SD_MMC.h"            // SD Card ESP32
 #include "time.h"
@@ -135,12 +134,12 @@ void setup() {
   initMicroSDCard();
   
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send_P(200, "text/html", index_html);
+    request->send(200, "text/html", index_html);
   });
 
   server.on("/capture", HTTP_GET, [](AsyncWebServerRequest * request) {
     takeNewPhoto = true;
-    request->send_P(200, "text/plain", "Taking Photo");
+    request->send(200, "text/plain", "Taking Photo");
   });
 
   server.on("/saved-photo", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -148,7 +147,7 @@ void setup() {
   });
   
   server.on("/list", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send_P(200, "text/html", list.c_str());
+    request->send(200, "text/html", list.c_str());
   });
   
   server.on("/view", HTTP_GET, [](AsyncWebServerRequest * request) {
