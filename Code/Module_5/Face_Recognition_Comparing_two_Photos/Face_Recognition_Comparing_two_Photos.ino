@@ -15,7 +15,6 @@
 #include "soc/rtc_cntl_reg.h"  // Disable brownout problems
 #include "driver/rtc_io.h"
 #include <ESPAsyncWebServer.h>
-#include <StringArray.h>
 #include <LittleFS.h>
 #include <FS.h>
 
@@ -246,22 +245,22 @@ void setup() {
   
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send_P(200, "text/html", index_html);
+    request->send(200, "text/html", index_html);
   });
 
   server.on("/capture-photo", HTTP_GET, [](AsyncWebServerRequest * request) {
     takeNewPhoto = true;
-    request->send_P(200, "text/plain", "Taking Photo");
+    request->send(200, "text/plain", "Taking Photo");
   });
   
   server.on("/trigger", HTTP_GET, [](AsyncWebServerRequest * request) {
     Serial.println("Trigger action");
-    request->send_P(200, "text/plain", "Trigger");
+    request->send(200, "text/plain", "Trigger");
   });
   
   server.on("/capture-test-photo", HTTP_GET, [](AsyncWebServerRequest * request) {
     takeNewPhoto2 = true;
-    request->send_P(200, "text/plain", "Taking Photo");
+    request->send(200, "text/plain", "Taking Photo");
   });
 
   server.on("/photo.jpg", HTTP_GET, [](AsyncWebServerRequest * request) {
