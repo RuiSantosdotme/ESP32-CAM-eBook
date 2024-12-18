@@ -15,7 +15,6 @@
 #include "soc/rtc_cntl_reg.h"  // Disable brownout problems
 #include "driver/rtc_io.h"
 #include <ESPAsyncWebServer.h>
-#include <StringArray.h>
 #include <SPIFFS.h>
 #include <FS.h>
 #include "ESP32_MailClient.h"
@@ -184,12 +183,12 @@ void setup() {
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send_P(200, "text/html", index_html, processor);
+    request->send(200, "text/html", index_html, processor);
   });
 
   server.on("/capture", HTTP_GET, [](AsyncWebServerRequest * request) {
     takeNewPhoto = true;
-    request->send_P(200, "text/plain", "Taking Photo");
+    request->send(200, "text/plain", "Taking Photo");
   });
 
   server.on("/saved-photo", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -198,7 +197,7 @@ void setup() {
   
   server.on("/email-photo", HTTP_GET, [](AsyncWebServerRequest * request) {
     emailSent = false;
-    request->send_P(200, "text/plain", "Sending Photo");
+    request->send(200, "text/plain", "Sending Photo");
   });
 
   // Receive an HTTP GET request at <ESP_IP>/get?email_input=<inputMessage>
