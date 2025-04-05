@@ -66,7 +66,6 @@ void smtpCallback(SMTP_Status status);
 #define FILE_PHOTO "photo.jpg"
 #define FILE_PHOTO_PATH "/photo.jpg"
 
-
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
 <head>
@@ -105,7 +104,6 @@ const char index_html[] PROGMEM = R"rawliteral(
 </script>
 </html>)rawliteral";
 
-// Replaces placeholder with DS18B20 values
 String processor(const String& var){
   //Serial.println(var);
   if(var == "EMAIL_INPUT"){
