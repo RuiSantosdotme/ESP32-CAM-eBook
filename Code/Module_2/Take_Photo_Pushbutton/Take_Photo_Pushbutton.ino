@@ -14,7 +14,6 @@
 #include "driver/rtc_io.h"
 
 // Pin definition for CAMERA_MODEL_AI_THINKER
-// Change pin definition if you're using another ESP32 with camera module
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
 #define XCLK_GPIO_NUM      0
@@ -35,50 +34,46 @@
 // Keep track of number of pictures
 int pictureNumber = 0;
 
-//Stores the camera configuration parameters
+// Stores the camera configuration parameters
 camera_config_t config;
 
-//button pin
+// Button pin
 const int buttonPin = 16;
 int buttonState = HIGH;
-int lastButtonState = LOW;   // the previous reading from the input pin
-
-unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
-unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
+int lastButtonState = LOW;
+unsigned long lastDebounceTime = 0;
+unsigned long debounceDelay = 50;
 
 void setup() {
   pinMode(buttonPin, INPUT);
   
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Disable brownout detector
  
   Serial.begin(115200);
   
-  //Initialize the camera  
+  // Initialize MicroSD
+  Serial.print("Initializing the MicroSD card module... ");
+  initMicroSDCard();
+
+  // Initialize the camera
   Serial.print("Initializing the camera module...");
   configInitCamera();
   Serial.println("Ok!");
-  //Initialize MicroSD
-  Serial.print("Initializing the MicroSD card module... ");
-  initMicroSDCard();
 }
 
 void loop() {
   int reading = digitalRead(buttonPin);
 
-  // If the switch changed, due to noise or pressing:
   if (reading != lastButtonState) {
-    // reset the debouncing timer
     lastDebounceTime = millis();
   }
   
   if ((millis() - lastDebounceTime) > debounceDelay) {
-    // if the button state has changed:
     if (reading != buttonState) {
       buttonState = reading;
-      if (buttonState==LOW){
+      if (buttonState == LOW) {
         Serial.println("Button Pressed");
-        //Path where new picture will be saved in SD Card
-        String path = "/picture" + String(pictureNumber) +".jpg";  
+        String path = "/picture" + String(pictureNumber) + ".jpg";  
         Serial.printf("Picture file name: %s\n", path.c_str());
         takeSavePhoto(path);
         pictureNumber++;
@@ -88,7 +83,7 @@ void loop() {
   lastButtonState = reading;
 }
 
-void configInitCamera(){
+void configInitCamera() {
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
   config.pin_d0 = Y2_GPIO_NUM;
@@ -108,62 +103,59 @@ void configInitCamera(){
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG; //YUV422,GRAYSCALE,RGB565,JPEG
+  config.pixel_format = PIXFORMAT_JPEG;
 
-  // Select lower framesize if the camera doesn't support PSRAM
-  if(psramFound()){
-    config.frame_size = FRAMESIZE_UXGA; // FRAMESIZE_ + QVGA|CIF|VGA|SVGA|XGA|SXGA|UXGA
-    config.jpeg_quality = 10; //0-63 lower number means higher quality
-    config.fb_count = 2;
+  config.frame_size = FRAMESIZE_SVGA; // 800x600
+  config.jpeg_quality = 10;           // Lower number = higher quality
+  config.fb_count = 1;                // Single frame buffer
+  config.fb_location = CAMERA_FB_IN_DRAM; // Force DRAM usage to avoid PSRAM 
+
+  // Check PSRAM for debugging (optional)
+  if (psramFound()) {
+    Serial.println("PSRAM detected but not used.");
   } else {
-    config.frame_size = FRAMESIZE_SVGA;
-    config.jpeg_quality = 12;
-    config.fb_count = 1;
+    Serial.println("No PSRAM detected.");
   }
-  
+
   // Initialize the Camera
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("Camera init failed with error 0x%x", err);
+    Serial.printf("Camera init failed with error 0x%x\n", err);
     return;
   }
 }
 
-void initMicroSDCard(){
-  // Start Micro SD card
+void initMicroSDCard() {
   Serial.println("Starting SD Card");
-  if(!SD_MMC.begin()){
+  // Use 1-bit mode to reduce memory and pin usage
+  if (!SD_MMC.begin("/sdcard", true)) { // true = 1-bit mode
     Serial.println("SD Card Mount Failed");
     return;
   }
   uint8_t cardType = SD_MMC.cardType();
-  if(cardType == CARD_NONE){
+  if (cardType == CARD_NONE) {
     Serial.println("No SD Card attached");
     return;
   }
+  Serial.println("SD Card initialized.");
 }
 
-void takeSavePhoto(String path){
-  // Take Picture with Camera
-  camera_fb_t  * fb = esp_camera_fb_get();  
-  if(!fb) {
+void takeSavePhoto(String path) {
+  camera_fb_t *fb = esp_camera_fb_get();  
+  if (!fb) {
     Serial.println("Camera capture failed");
     return;
   }
 
-  // Save picture to microSD card
   fs::FS &fs = SD_MMC; 
   File file = fs.open(path.c_str(), FILE_WRITE);
-  if(!file){
+  if (!file) {
     Serial.println("Failed to open file in writing mode");
-  } 
-  else {
-    file.write(fb->buf, fb->len); // payload (image), payload length
+  } else {
+    file.write(fb->buf, fb->len);
     Serial.printf("Saved file to path: %s\n", path.c_str());
   }
   file.close();
 
-  delay(50);
-  //return the frame buffer back to the driver for reuse
   esp_camera_fb_return(fb); 
 }
