@@ -9,15 +9,17 @@
 #include "esp_camera.h"
 #include "SPI.h"
 #include "driver/rtc_io.h"
+#include "soc/soc.h"           // Disable brownout problems
+#include "soc/rtc_cntl_reg.h"  // Disable brownout problems
 #include <ESP_Mail_Client.h>
 #include <FS.h>
 #include <LittleFS.h>
 #include <WiFi.h>
 
 // REPLACE WITH YOUR NETWORK CREDENTIALS
+// REPLACE WITH YOUR NETWORK CREDENTIALS
 const char* ssid = "REPLACE_WITH_YOUR_SSID";
-const char* password = "REPLACE_WITH_YOUR_PASSWORD";
-
+const char* password = "REPLACE_WITH_YOUR_SSID";
 
 // To send Emails using Gmail on port 465 (SSL), you need to create an app password: https://support.google.com/accounts/answer/185833
 #define emailSenderAccount    "EXAMPLE_EMAIL@gmail.com"
@@ -133,6 +135,8 @@ void setup() {
   sendPhoto();
 
   esp_sleep_enable_ext0_wakeup(GPIO_NUM_13, 1);
+  rtc_gpio_pullup_dis(GPIO_NUM_13);
+  rtc_gpio_pulldown_en(GPIO_NUM_13);
   Serial.println("Going to sleep now");
   WiFi.disconnect();
   delay(1000);
@@ -270,16 +274,14 @@ void smtpCallback(SMTP_Status status){
   Serial.println(status.info());
 
   /* Print the sending result */
-  if (status.success())
-  {
+  if (status.success()) {
     Serial.println("----------------");
     Serial.printf("Message sent success: %d\n", status.completedCount());
     Serial.printf("Message sent failled: %d\n", status.failedCount());
     Serial.println("----------------\n");
     struct tm dt;
 
-    for (size_t i = 0; i < smtp.sendingResult.size(); i++)
-    {
+    for (size_t i = 0; i < smtp.sendingResult.size(); i++) {
       /* Get the result item */
       SMTP_Result result = smtp.sendingResult.getItem(i);
       time_t ts = (time_t)result.timestamp;
