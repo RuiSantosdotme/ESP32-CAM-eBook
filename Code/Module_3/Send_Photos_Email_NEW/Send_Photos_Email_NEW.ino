@@ -9,6 +9,7 @@
 #include "esp_camera.h"
 #include "SPI.h"
 #include "driver/rtc_io.h"
+#include "soc/rtc_cntl_reg.h"  // Disable brownout problems
 #include <ESP_Mail_Client.h>
 #include <FS.h>
 #include <WiFi.h>
