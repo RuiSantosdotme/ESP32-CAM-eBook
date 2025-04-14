@@ -370,7 +370,7 @@ void setup(){
   
   // Handle Web Server
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/html", index_html, processor);
+    request->send(200, "text/html", index_html, processor);
   });
   server.on("/stream", HTTP_GET, streamJpg);
 
